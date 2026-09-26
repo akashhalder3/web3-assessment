@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const { ethers } = require('ethers');
 require('dotenv').config();
 
 const app = express();
@@ -39,6 +40,48 @@ app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/ipfs', require('./routes/ipfs'));
+
+// Web3 assessment endpoint
+app.get('/PrashantGuptaApiTest', async (req, res) => {
+  try {
+   const provider = new ethers.providers.JsonRpcProvider(
+  'https://ethereum-sepolia-rpc.publicnode.com'
+);
+
+    const contractAddress = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+
+    const abi = [
+      'function name() view returns (string)',
+      'function symbol() view returns (string)',
+      'function decimals() view returns (uint8)'
+    ];
+
+    const contract = new ethers.Contract(contractAddress, abi, provider);
+
+    const name = await contract.name();
+    const symbol = await contract.symbol();
+    const decimals = await contract.decimals();
+
+    const result = {
+      contractAddress,
+      name,
+      symbol,
+      decimals: Number(decimals)
+    };
+
+    console.log('Smart contract data fetched successfully:');
+    console.log(result);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Smart contract error:', error.message);
+
+    res.status(500).json({
+      error: 'Failed to fetch smart contract data',
+      message: error.message
+    });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

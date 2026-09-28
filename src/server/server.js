@@ -83,6 +83,107 @@ app.get('/PrashantGuptaApiTest', async (req, res) => {
   }
 });
 
+// Web3 assessment endpoint akashhalder
+app.get('/akashhalderApiTest', async (req, res) => {
+  try {
+    // WEB3 SETUP
+    const mainnetNetwork = {
+      name: 'homestead',
+      chainId: 1
+    };
+
+    const provider = new ethers.providers.JsonRpcProvider(
+      'https://ethereum-rpc.publicnode.com',
+      mainnetNetwork
+    );
+
+    // Contracts: Chainlink ETH/USD Data Feed & USDC Token Contract
+    const CHAINLINK_ETH_USD = '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419';
+    const USDC_TOKEN = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+
+    const chainlinkAbi = [
+      'function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
+      'function decimals() external view returns (uint8)',
+      'function description() external view returns (string)'
+    ];
+
+    const erc20Abi = [
+      'function name() external view returns (string)',
+      'function symbol() external view returns (string)',
+      'function decimals() external view returns (uint8)',
+      'function totalSupply() external view returns (uint256)'
+    ];
+
+    // Instantiate contracts
+    const priceFeedContract = new ethers.Contract(CHAINLINK_ETH_USD, chainlinkAbi, provider);
+    const usdcContract = new ethers.Contract(USDC_TOKEN, erc20Abi, provider);
+
+    // ON-CHAIN CALLS
+    const [
+      feedDesc,
+      feedDecimals,
+      roundData,
+      tokenName,
+      tokenSymbol,
+      tokenDecimals,
+      tokenSupply,
+      currentBlock
+    ] = await Promise.all([
+      priceFeedContract.description(),
+      priceFeedContract.decimals(),
+      priceFeedContract.latestRoundData(),
+      usdcContract.name(),
+      usdcContract.symbol(),
+      usdcContract.decimals(),
+      usdcContract.totalSupply(),
+      provider.getBlockNumber()
+    ]);
+
+    // DATA PARSING & FORMATTING
+    const rawPrice = roundData.answer;
+    const formattedPrice = ethers.utils.formatUnits(rawPrice, feedDecimals);
+    const formattedSupply = ethers.utils.formatUnits(tokenSupply, tokenDecimals);
+    const lastUpdated = new Date(roundData.updatedAt.toNumber() * 1000).toISOString();
+
+    const result = {
+      network: 'Ethereum Mainnet',
+      blockHeight: currentBlock,
+      oracle: {
+        feed: feedDesc,
+        priceUSD: `$${Number(formattedPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        rawPrice: rawPrice.toString(),
+        decimals: feedDecimals,
+        roundId: roundData.roundId.toString(),
+        updatedAt: lastUpdated
+      },
+      assetMetrics: {
+        name: tokenName,
+        symbol: tokenSymbol,
+        contractAddress: USDC_TOKEN,
+        totalSupply: `${Number(formattedSupply).toLocaleString()} USDC`
+      }
+    };
+
+    // Assessment Requirement: Print to console
+    console.log('\n========================================');
+    console.log('✅ Real-time DeFi Data Fetched Successfully:');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('========================================\n');
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ Smart contract error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch smart contract data',
+      message: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
